@@ -10,7 +10,8 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r}
-library()
+library(tidyverse)
+
 ```
 
 
@@ -33,11 +34,14 @@ clin_dat <- dat_raw %>%
 
 
 # visualize some of the data
-
 ```
 
 
 # Do any transformations/modifications
 
+```{r}
+# for example consider standardizing each gene
+
+```
 
 # Save data to use in analysis
