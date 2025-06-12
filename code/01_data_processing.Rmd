@@ -28,7 +28,7 @@ dat_raw <- golub.exprs.pheno
 ```{r}
 # make a table of demographic/clinical variables
 
-clin_dat <- dat_raw %>% 
+clin_dat <- dat_raw %>%  select(Samples:cancer)
 
 # check for missing data
 
