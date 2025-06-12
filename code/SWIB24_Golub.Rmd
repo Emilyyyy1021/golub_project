@@ -1,0 +1,118 @@
+---
+title: "SWIB24: Leukemia Data Analysis"
+date: "Thanks to Professor David Harrington and Julie Vu (Harvard) for material."
+
+fontsize: 11pt
+geometry: margin=1in
+
+output:
+  pdf_document:
+    includes:
+      in_header: header-6.tex
+    fig_width: 5
+    fig_height: 3.5
+---
+
+\textbf{Reading on graphical summaries}      
+
+- *OI Biostat*: Section 1.6 and earlier material on numerical and graphical summaries.
+
+\vspace{1cm}
+
+\textbf{Golub Leukemia Data.} Gene expression data for 7,129 genes were collected from 72 children with acute leukemia, of which 47 had acute lymphoblastic leukemia (ALL) and 25 had acute myeloblastic leukemia (AML). The goal of the experiment was to identify genes that are differentially expressed between ALL versus AML, in order to develop a strategy for diagnosing leukemia type based on gene expression data.
+
+\begin{center}
+\textit{Can childhood leukemia be diagnosed using molecular measurements and software?}
+\end{center}
+
+In other words, are there two sets of genes in a leukemia sample: one that is highly expressed in ALL patients but not in AML, and the other highly expressed in AML patients but not ALL?
+
+Some questions to think about:
+
+\begin{enumerate}
+
+  \item \textit{Differential genes} Can we identify a set of individual genes that are expressed in ALL cancers when compared to AML cancers?
+  
+  \item \textit{Classification} Can we distinguish AML from ALL using a subset of genes by building a prediction algorithm? Some algorithms to try include Lasso, Elastic Net, the SuperLearner library.
+  
+  \item \textit{Visualization} Can we visualize the results using methods such as a heatmap?
+  
+  \item \textit{Interpretation} How do your findings compare to those published in the paper by Golub, T et al (1999).  
+  \end{enumerate}
+  
+\vspace{1cm}
+
+Variables in the dataset:
+
+  - \texttt{Samples}: Sample or chip number. The material from each patient was examined on a separate chip and experimental run.
+  - \texttt{BM.PB}: Type of patient material analyzed. BM denotes bone marrow; PB denotes a peripheral blood sample.
+  - \texttt{Gender}: \texttt{F} for female, \texttt{M} for male.
+  - \texttt{Source}: Hospital where the patient was treated.
+  - \texttt{tissue.mf}: A variable showing the combination of type of patient material and sex of the patient. For example, \texttt{BM:f} indicates a bone marrow sample from a female patient.
+  - \texttt{cancer}: The type of leukemia, with a notation for subtype within ALL. \texttt{aml} is AML, \texttt{allB} is ALL which started in B-cells (cells that mature into plasma cells), and \texttt{allT} is ALL with T-cell origin (T-cells are a type of white blood cell).
+  
+\newpage
+
+### Some code to help you get started 
+
+1. After loading the Golub data, execute the following code to create a matrix called \texttt{gene.matrix} that only contains gene expression values:
+
+```{r}
+## load data -- please change below to specify the directory where you data is stored
+load(here::here("data/golub_exprs_pheno.Rdata"))
+Golub <- golub.exprs.pheno
+
+## Check the dimensions of the Golub matrix
+dim(Golub)
+
+## View the frcolumn names of the Golub matrix 
+colnames(Golub)[1:10]
+
+#create gene.matrix, trimmed version of Golub dataset
+gene.matrix = as.matrix(Golub[,-(1:6)])
+```
+
+Matrix notation is used to specify rows and columns. For a dataframe \texttt{A}, \texttt{A[i, j]} refers to the element in row \texttt{i} and column \texttt{j}. \texttt{A[i,]} refers to row \texttt{i} and \texttt{A[,j]} refers to column \texttt{j}.
+
+How does \texttt{gene.matrix} differ from the original dataset?
+
+
+
+While the original dataset contains phenotype information in the first six columns, \texttt{gene.matrix} only consists of the gene expression data from the last 7,129 columns of \texttt{Golub}.
+
+
+Plot a histogram showing the distribution of the expression levels of the second gene across patients. Describe the distribution.
+
+```{r}
+hist(gene.matrix[,2], breaks=40, xlab=colnames(gene.matrix)[2], col="blue", main=paste("Distribution of ", colnames(gene.matrix)[2], sep=""))
+```
+
+Create a logical variable, \texttt{leuk.type}, that has value \texttt{1} for AML and value \texttt{0} for anything that is not AML (i.e., \texttt{allT} and \texttt{allB}).
+
+```{r, eval = TRUE}
+#create logical variable
+leuk.type = (Golub$cancer)
+
+#view summary of leukemia types
+table(leuk.type)
+```
+
+How many patients are there with AML? How many with ALL?
+
+### Some ideas for developing a project 
+These are some ideas. Feel free to come up with your own 
+
+#### Comparing classifiers
+ - Try different classification algorithms and compare AUC. 
+ 
+#### Comparing methods to control FDR
+ - Compare methods to control the false discovery rate (FDR): understand why in the presence of multiple tests, the FDR increases. Two methods to control FDR are (1) Storey's q value approach (2) Simulation (see code).
+ Suggested steps: 
+  - Filter the 7100 genes and select the top 20% of most variable genes. 
+  - Randomly select 10 AML and 18 ALL to leave out as a test set. 
+  - In the remaining 15 AML and 29 ALL, use a t test to test difference between ALL and AML 
+  - Control the FDR using each of the two approaches and select the genes that meet FDR < 0.05 
+  - Train a classifier using the selected genes using each of the FDR approach above. 
+  - Test the classifier using the test set defined above.
+
+

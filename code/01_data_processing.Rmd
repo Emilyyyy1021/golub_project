@@ -1,0 +1,43 @@
+---
+title: "01_data_processing"
+author: "Margaret Janiczek"
+date: "2025-06-12"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library()
+```
+
+
+# Load data
+```{r}
+load(here::here("data/golub_exprs_pheno.Rdata"))
+
+dat_raw <- golub.exprs.pheno
+```
+
+
+# Do initial explorations
+
+```{r}
+# make a table of demographic/clinical variables
+
+clin_dat <- dat_raw %>% 
+
+# check for missing data
+
+
+# visualize some of the data
+
+```
+
+
+# Do any transformations/modifications
+
+
+# Save data to use in analysis
