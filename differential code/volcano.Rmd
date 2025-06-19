@@ -1,0 +1,108 @@
+---
+title: "happy volcano plot"
+author: "emily"
+date: "2025-06-18"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# Loading relevant libraries 
+library(JGL)
+library(igraph)
+library(tidyverse)
+library(igraph)
+library(RColorBrewer)
+library(pheatmap)
+```
+
+```{r}
+# all <-  analysis_trim %>% 
+#   filter(cancer == "all")
+# 
+# aml <-  analysis_trim %>% 
+#   filter(cancer == "aml")
+# 
+# t.test(aml, all)
+# 
+# y <- t.test(aml[4], all[4])
+# 
+# ttest <- function(df, grp1, grp2) {
+#   x <- as.numeric(row[grp1])
+#   y <- as.numeric(row[grp2])
+#   t.test(x, y)$p.value
+# }
+# rawpvalue = apply(rat, 1, ttest, grp1 = c(1:6), grp2 = c(7:11))
+# 
+# 
+# log_scale <- log2(analysis_trim$scaled_value)
+# 
+# #calculate the mean of each gene per all group
+# all_group <- apply(all, 1, mean)
+# 
+# #calcuate the mean of each gene per aml group
+# aml_group <- apply(aml, 1, mean)
+# 
+# #confirming that we have a vector of numbers
+# class(all_group)
+# 
+# class(aml_group)
+# 
+# foldchange <- all_group - aml_group
+# 
+# results = cbind(foldchange, rawpvalue)
+# results = as.data.frame(results)
+# results$probename <- rownames(results)
+# 
+# volcano = ggplot(data = results, aes(x = foldchange, y = -1*log10(rawpvalue)))
+# volcano + geom_point()
+```
+
+```{r}
+#volcano
+volcano = ggplot(data = master_new, aes(x = coef, y = p.value))
+volcano + geom_point(alpha = 0.5)
+```
+
+
+```{r}
+#try heat map
+dat_mat <- as.matrix(analysis_dat_wide %>% select(-c(Samples:cancer)))
+
+rownames(dat_mat) <- analysis_dat_wide$Samples
+
+annotation_row <- data.frame(cancer = analysis_dat_wide$cancer)
+rownames(annotation_row) <- analysis_dat_wide$Samples
+
+dim(dat_mat)
+
+# finally we input the numeric matrix and annotations
+pheatmap(dat_mat, 
+         annotation_row = annotation_row,
+         cluster_cols = FALSE,
+         show_rownames = FALSE,
+         show_colnames = FALSE)
+```
+
+```{r}
+dat_mat <- as.matrix(
+  analysis_dat_wide %>% select(all_of(master01$genes)))
+
+rownames(dat_mat) <- analysis_dat_wide$Samples
+
+annotation_row <- data.frame(cancer = analysis_dat_wide$cancer)
+rownames(annotation_row) <- analysis_dat_wide$Samples
+
+dim(dat_mat)
+
+# finally we input the numeric matrix and annotations
+pheatmap(dat_mat, 
+         annotation_row = annotation_row,
+         cluster_cols = FALSE,
+         show_rownames = FALSE,
+         show_colnames = FALSE)
+```
+

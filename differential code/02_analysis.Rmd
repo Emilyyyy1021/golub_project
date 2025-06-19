@@ -1,0 +1,94 @@
+---
+title: "02_analysis"
+author: "Margaret Janiczek"
+date: "2025-06-12"
+output: html_document
+---
+
+```{r}
+library(broom)
+library(qvalue)
+```
+
+# Load in prepared data
+```{r}
+#analysis_trim
+analysis_trim <- analysis_dat  %>%
+ mutate(cancer = case_when(
+  	 cancer == "allB" & cancer == "allT" ~ "all",
+   	cancer == "aml" ~ "aml",
+   	TRUE ~ "all")) %>%
+    select(-Samples, -BM.PB, -Gender, -Source, -tissue.mf) 
+```
+
+```{r}
+colnames(analysis_trim)
+```
+
+```{r}
+# fit single logistic regression with each gene
+analysis_trim <- analysis_trim %>% 
+  mutate(cancer = factor(cancer, levels = c("aml", "all")))
+
+fit_model <- function(df) glm(cancer ~ scaled_value, data = df, family = binomial)
+get_pval <- function(mod) {
+  tidy(mod) %>%
+    filter(term == "scaled_value") %>%
+    pull(p.value)
+}
+get_coef <- function(mod) {
+  tidy(mod) %>%
+    filter(term == "scaled_value") %>%
+    pull(estimate)
+}
+
+get_output <- function(mod) augment(mod)
+
+
+master <- analysis_trim %>%
+  group_by(genes) %>%
+  nest() %>%
+  mutate(model = map(data, fit_model),
+         p.value = map_dbl(model, get_pval),
+         output = map(model, get_output))
+
+master
+```
+
+```{r}
+get_coef <- function(mod) {
+  tidy(mod) %>%
+    filter(term == "scaled_value") %>%
+    pull(estimate)
+}
+
+master_new <- analysis_trim %>%
+  group_by(genes) %>%
+  nest() %>%
+  mutate(model = map(data, fit_model),
+         p.value = map_dbl(model, get_pval),
+         coef = map_dbl(model, get_coef))
+
+```
+
+
+```{r}
+# test_p <- master$p.value
+# p.adj <- p.adjust(test_p, method = "BH")
+```
+
+```{r}
+# hist(test_p, nclass = 20)
+```
+
+```{r}
+# qobj <- qvalue(p = test_p)
+# 
+# qobj
+```
+
+```{r}
+master05 <- master %>% filter(p.value < 0.05)
+ 
+master01 <- master %>% filter(p.value < 0.01)
+```

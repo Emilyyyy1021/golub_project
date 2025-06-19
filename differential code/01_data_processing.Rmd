@@ -1,0 +1,64 @@
+---
+title: "01_data_processing"
+author: "Margaret Janiczek"
+date: "2025-06-12"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(glmnet)
+```
+
+# Load data
+```{r}
+load(here::here("data/golub_exprs_pheno.Rdata"))
+
+dat_raw <- golub.exprs.pheno
+```
+
+##Run this code
+```{r}
+clin_dat <- dat_raw %>%  select(Samples:cancer)
+
+# pivot to long format
+gene_dat <- dat_raw %>%
+  pivot_longer(-c(Samples:cancer), names_to = "genes") %>%
+  group_by(genes)
+
+# calculate standard deviation, mean, and coef variance
+gene_var <- gene_dat %>%
+  group_by(genes) %>%
+  summarise(sd = sd(value),
+            mean = mean(value),
+            coef_var = sd/mean) %>%
+  arrange(sd)
+
+# make an index for the top 20% of variable genes
+gene_index <- gene_var %>%
+  ungroup() %>%
+  slice_head(n = round(.2*length(gene_var$genes),0))
+
+# select for genes in the top variable 
+analysis_dat <- gene_dat %>%
+  filter(genes %in% gene_index$genes) %>%
+  group_by(genes) %>%
+  mutate(scaled_value = scale(value))
+
+# if you want data back in wide format
+analysis_dat_wide <- analysis_dat %>%
+  select(-value) %>%
+  pivot_wider(names_from = genes, values_from = scaled_value)
+
+analysis_dat_wide <- analysis_dat_wide %>%
+ mutate(cancer = case_when(
+  	 cancer == "allB" & cancer == "allT" ~ "all",
+   	cancer == "aml" ~ "aml",
+   	TRUE ~ "all")) 
+
+```
+
+
+# Save data to use in analysis
+
+
