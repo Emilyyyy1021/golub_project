@@ -15,4 +15,4 @@ I save output in the `results` folder, and contain background papers or informat
 
 I use an `.Rproj` environment to conduct the whole analysis.
 
-- TESSA WAS HERE
+Claire, Emily, Yuzhang were here
