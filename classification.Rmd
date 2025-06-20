@@ -1,0 +1,238 @@
+---
+title: "classification"
+date: "2025-06-12"
+output: html_document
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(glmnet)
+library(pROC)
+library(caret)
+library(vcd)
+```
+
+# Data Preparation
+
+## Load data
+
+```{r}
+load(here::here("data/golub_exprs_pheno.Rdata"))
+
+golub.exprs.pheno <- golub.exprs.pheno %>%
+ mutate(cancer = case_when(
+   cancer == "allB" & cancer == "allT" ~ "all",
+   cancer == "aml" ~ "aml",
+   TRUE ~ "all")) %>%
+  mutate(cancer_indicator = case_when(
+    cancer == "all" ~ 0,
+    cancer == "aml" ~ 1
+  ))
+  
+# head(golub.exprs.pheno)
+```
+
+## Do initial explorations
+
+```{r}
+# check for missing data
+sum(is.na(golub.exprs.pheno))
+golub.exprs.pheno$Gender <- golub.exprs.pheno$Gender %>%
+  as.character() %>%
+  replace_na("Unknown") %>%
+  as.factor()
+golub.exprs.pheno$cancer <- golub.exprs.pheno$cancer %>%
+  as.factor()
+sum(is.na(golub.exprs.pheno))
+
+# visualize some of the data
+
+```
+
+## Do any transformations/modifications
+
+```{r}
+# for example consider standardizing each gene
+gene_full <- golub.exprs.pheno[, 7:ncol(golub.exprs.pheno)] %>%
+  select(-cancer_indicator)
+
+gene_mean <- apply(gene_full, 2, mean)
+gene_sd <- apply(gene_full, 2, sd)
+
+gene_cv <- (gene_sd / gene_mean) %>%
+  sort(decreasing = TRUE)
+gene_subset <- gene_cv[1:round(length(gene_cv) * 0.2)]
+```
+
+## Save data to use in analysis
+
+```{r}
+gene_subset <- as.data.frame(gene_full[, names(gene_subset)])
+
+clin_subset <- golub.exprs.pheno %>%
+  select("BM.PB", "Gender", "tissue.mf")
+```
+
+# Classification (genes only)
+
+## Split test/train
+
+[source](https://stackoverflow.com/questions/17200114/how-to-split-data-into-training-testing-sets-using-sample-function)
+
+```{r}
+set.seed(42)
+
+n <- nrow(gene_subset)
+train_index <- sample(1:n, size = floor(0.7 * n))
+test_index <- setdiff(1:n, train_index)
+
+X <- as.matrix(gene_subset)
+y <- golub.exprs.pheno$cancer_indicator
+
+X_train_raw <- X[train_index, ]
+X_test_raw<- X[test_index, ]
+
+X_train_scaled <- scale(X_train_raw)
+train_mean <- attr(X_train_scaled, "scaled:center")
+train_sd <- attr(X_train_scaled, "scaled:scale")
+
+X_test_scaled <- sweep(X_test_raw, 2, train_mean, "-")
+X_test_scaled <- sweep(X_test_scaled, 2, train_sd, "/")
+  
+y_train <- y[train_index]
+y_test <- y[test_index]
+```
+
+## Fit model with cv
+
+```{r}
+cvfit <- cv.glmnet(as.matrix(X_train_scaled), y_train, family = "binomial", type.measure = "class")
+plot(cvfit)
+
+cvfit$lambda.min
+# coef(cvfit, s = "lambda.min")
+```
+
+## Evaluate performance
+
+```{r}
+prob_test <- predict(cvfit, newx = as.matrix(X_test_scaled), s = "lambda.min", type = "response")
+pred_test <- ifelse(prob_test > 0.5, 1, 0)
+
+table(Predicted = pred_test, Actual = y_test)
+
+roc_curve <- roc(y_test, as.vector(prob_test))
+plot(roc_curve, main = "ROC Curve")
+auc(roc_curve)
+
+prob_test
+```
+
+# Classification (with demo)
+
+```{r}
+ # levels specifies preferred order of categories for displays
+GenderGap <- xtabs(~ Gender + cancer, data=golub.exprs.pheno)
+GenderGap
+
+chisq.test(GenderGap)
+Gender_stdres <- chisq.test(GenderGap)$stdres # standardized residuals
+mosaic(GenderGap, gp=shading_Friendly, residuals=Gender_stdres,
+       residuals_type="Std\nresiduals", labeling=labeling_residuals)
+
+BMPBGap <- xtabs(~ BM.PB + cancer, data=golub.exprs.pheno)
+chisq.test(BMPBGap)
+BMPB_stdres <- chisq.test(BMPBGap)$stdres # standardized residuals
+mosaic(BMPBGap, gp=shading_Friendly, residuals=BMPB_stdres,
+       residuals_type="Std\nresiduals", labeling=labeling_residuals)
+
+tissueGap <- xtabs(~ tissue.mf + cancer, data=golub.exprs.pheno)
+chisq.test(tissueGap)
+tissue_stdres <- chisq.test(tissueGap)$stdres
+mosaic(tissueGap, gp=shading_Friendly, residuals=tissue_stdres,residuals_type="Std\nresiduals", labeling=labeling_residuals)
+
+mosaic(tissueGap,
+       gp = shading_Friendly,
+       residuals = tissue_stdres,
+       residuals_type = "Std\nresiduals",
+       labeling_args = list(rot_labels = c(left = 45)),
+       offset_labels = c(left = 0.5),
+       labeling = labeling_residuals)
+
+# library(knitr)
+# df <- data.frame(variable= c("Gender", "BM.PB", "tissue.mf"),p = c("9.6e-06","0.9841", "3.461e-05"))
+# kable(df)
+```
+
+
+## Split test/train
+
+[source](https://stackoverflow.com/questions/17200114/how-to-split-data-into-training-testing-sets-using-sample-function)
+[link](https://www.reddit.com/r/learnmachinelearning/comments/vjoo1r/comment/idk8rc1/?utm_source=share&utm_medium=web3x&utm_name=web3xcss&utm_term=1&utm_content=share_button)
+
+```{r}
+clin_subset$Gender <- as.character(clin_subset$Gender)
+clin_subset$Gender[is.na(clin_subset$Gender)] <- "Unknown"
+clin_subset$Gender <- as.factor(clin_subset$Gender)
+
+df_subset <- cbind(clin_subset, gene_subset)
+setdiff(colnames(df_subset), colnames(gene_subset))
+
+X_full <- df_subset
+y <- golub.exprs.pheno$cancer_indicator
+
+dummies <- dummyVars(~ ., data = X_full)
+X_full_numeric <- predict(dummies, newdata = X_full)
+
+set.seed(42)
+n <- nrow(X_full_numeric)
+train_index <- sample(1:n, size = floor(0.7 * n))
+test_index <- setdiff(1:n, train_index)
+
+X_train_raw <- X_full_numeric[train_index, ]
+X_test_raw  <- X_full_numeric[test_index, ]
+
+y_train <- y[train_index]
+y_test  <- y[test_index]
+
+sd_train <- apply(X_train_raw, 2, sd)
+nonzero_sd_cols <- which(sd_train != 0)
+
+X_train_raw <- X_train_raw[, nonzero_sd_cols]
+X_test_raw  <- X_test_raw[, nonzero_sd_cols]
+
+X_train_scaled <- scale(X_train_raw)
+train_mean <- attr(X_train_scaled, "scaled:center")
+train_sd <- attr(X_train_scaled, "scaled:scale")
+
+X_test_scaled <- sweep(X_test_raw, 2, train_mean, "-")
+X_test_scaled <- sweep(X_test_scaled, 2, train_sd, "/")
+```
+
+## Fit model
+
+```{r}
+cvfit_full <- cv.glmnet(as.matrix(X_train_scaled), y_train, family = "binomial", type.measure = "class")
+plot(cvfit_full)
+```
+
+## Evaluate
+```{r}
+prob_test_full <- predict(cvfit_full, newx = as.matrix(X_test_scaled), s = "lambda.min", type = "response")
+pred_test_full <- ifelse(prob_test_full > 0.5, 1, 0)
+
+table(Predicted = pred_test_full, Actual = y_test)
+
+roc_curve_full <- roc(y_test, as.vector(prob_test_full))
+plot(roc_curve_full, main = "ROC Curve (With Demographic Variables)", col = "blue", lwd = 2)
+print(auc(roc_curve_full))
+
+prob_test_full
+```
+
